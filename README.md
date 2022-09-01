@@ -1,4 +1,4 @@
-# worstcase-ranking-approximation
+# Worst-case Ranking Approximation
 
 Black-Box Min-Max Continuous Optimization Using CMA-ES with Worst-case Ranking Adaptation
 
