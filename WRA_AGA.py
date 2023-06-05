@@ -14,6 +14,9 @@ try:
 except:
     raise ModuleNotFoundError("`adversarial_cmaes` not found. Download it from https://gist.github.com/youheiakimoto/ab51e88c73baf68effd95b750100aad0")        
 
+## If test functions on the paper is used, "journal_minmaxf.py" is required 
+import journal_minmaxf as ff
+
 
 def mirror(z, lbound, ubound):
     """ Mirroring constraint handling 
@@ -562,21 +565,6 @@ def optimize(f, Ftolgap, gapitval, Vxmin, Cxmax, boundx, boundy, lambdax, init_x
     yworst = nominaly[wlist[bid]]
     return fbest, xbest, yworst, nominalx, nominaly
 
-## test function
-a = 1.
-b = 100.
-c = 1.
-def fcon_cav(x, y, a=1, b=10, c=1):
-    fxy = a/2*np.dot(x, x) + b * np.dot(x, y) - c/2*np.dot(y, y)
-    return fxy
-
-def fbinary(x, y, a=1, b=1, c=1):
-    fxy = np.dot(x, y)
-    return fxy
-
-def f(x, y):
-    return fbinary(x, y, a, b, c)
-
 if __name__ == "__main__":
     import numpy as np
     import matplotlib.pyplot as plt
@@ -597,8 +585,8 @@ if __name__ == "__main__":
         pass
 
     ## Experiment
-    m = 10
-    n = 10
+    m = 5
+    n = 5
 
     xb = np.zeros((2, m))
     xb[0, :] = np.ones(m)*-3
@@ -618,8 +606,8 @@ if __name__ == "__main__":
     ## termination criteria
     Vxmin = 1e-10
     Cxmax = 1e+7
-    Ftolgap = 1e-5
-    gapitval = 100
+    Ftolgap = 1e-7
+    gapitval = 10
     
     ## initial parameters for CMA-ES
     init_x = np.random.rand(m)*(xb[1, :] - xb[0, :]) + xb[0, :]
@@ -634,7 +622,7 @@ if __name__ == "__main__":
     beta = 0.5
     ymember = int(lambdax*yc)
     init_y = np.zeros((ymember, n))
-    MAXBI = 1
+    MAXBI = 0
     p = np.ones(ymember) * 1 
     pn = 0.05
     pp = 0.4
@@ -643,6 +631,37 @@ if __name__ == "__main__":
 
     for i in range(ymember):
         init_y[i, :] = np.random.rand(n)*(yb[1, :] - yb[0, :]) + yb[0, :]
+
+    ## If Tfunc is True, test functions can be used
+    Tfunc=True
+    if Tfunc==True:
+        fn = 1
+        b=1
+        setB = ff.setB(m, n, b)
+        B= setB.setB()
+        fobj =ff.minmaxf(B, yb[:, 0], xb[:, 0])
+        if fn==1:
+            f = fobj.flxly
+        elif fn==2:
+            f = fobj.fcnc
+        elif fn==3:
+            f = fobj.fncc
+        elif fn==4:
+            f = fobj.fmsp
+        elif fn==5:
+            f = fobj.fqcc
+        elif fn==6:
+            f = fobj.fnsscc
+        elif fn==7:
+            f = fobj.fnscc
+        elif fn==8:
+            f = fobj.fnscnsc
+        elif fn==9:
+            f = fobj.fcvncc    
+        elif fn==10:
+            f = fobj.fc4
+        elif fn==11:
+            f = fobj.fellqcc
 
     print ('Start')
 
@@ -667,6 +686,17 @@ f, Ftolgap, gapitval, Vxmin, Cxmax, boundx, boundy, lambdax, init_x, init_D_x, m
     dat = np.loadtxt(logpath)
     hatF = np.array([np.min(dat[t, 2+3*m:2+3*m+lambdax]) for t in range(len(dat[:,0]))])
 
+
+    ## If test functions are used, worst y can be obtained.
+    if Tfunc==True:
+        callworst = ff.call_worst(fn, yb[:, 0], n, B)
+        cmean=np.array(dat[:,2:2+m])
+        for i in range(len(dat[:,0])):
+            worstS = np.array(callworst.yworst(cmean[i,:]))
+            hatF[i] = f(cmean[i,:], worstS)
+
+
+
     plt.rcParams['font.family'] ='sans-serif'
     plt.rcParams['xtick.direction'] = 'in'
     plt.rcParams['ytick.direction'] = 'in'
@@ -674,7 +704,7 @@ f, Ftolgap, gapitval, Vxmin, Cxmax, boundx, boundy, lambdax, init_x, init_D_x, m
     plt.rcParams['ytick.major.width'] = 5.0
     plt.rcParams['font.size'] = 12
     plt.rcParams['axes.linewidth'] = 1.0
-    plt.figure(figsize=(10,7))
+    plt.figure(figsize=(10,7), facecolor='white')
 
     ## Plot
     idp=0
