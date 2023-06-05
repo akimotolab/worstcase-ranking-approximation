@@ -14,6 +14,9 @@ try:
 except:
     raise ModuleNotFoundError("`adversarial_cmaes` not found. Download it from https://gist.github.com/youheiakimoto/ab51e88c73baf68effd95b750100aad0")        
 
+## If test functions on the paper is used, "journal_minmaxf.py" is required 
+import journal_minmaxf as ff
+
 
 class MyDdCma(DdCma): 
     def set_dynamic_parameters(self, init_matrix, init_S, init_sigma):
@@ -177,7 +180,7 @@ class WRA:
         init_matrix_tilde = np.zeros((self.lambdax, 5, self.n, self.n))
         init_S_tilde = np.ones((self.lambdax, self.n))
         init_sigma_tilde = np.ones(self.lambdax)
-
+        
         for i in range(self.lambdax):
             self.solution[i, :] = x_t[i, :]
             y_tilde[i, :] = self.yy[self.kworst[i], :]
@@ -300,6 +303,8 @@ class WRA:
             self.init_matrix[Sworst[l], :, :, : ] = init_matrix_tilde[ridy, :, :, : ] 
             self.init_S[Sworst[l], :] = init_S_tilde[ridy, :]
             self.init_sigma[Sworst[l]] = init_sigma_tilde[ridy]
+            self.D_y[Sworst[l], :] = D_y_tilde[ridy, :]
+
 
         
         for k in pnmember:
@@ -675,22 +680,6 @@ def optimize(f, Ftolgap, gapitval, Vxmin, Cxmax, boundx, boundy, lambdax, init_x
     yworst = nominaly[wlist[bid]]
     return fbest, xbest, yworst, nominalx, nominaly
 
-## test function
-a = 1.
-b = 1.
-c = 1.
-def fcon_cav(x, y, a=1, b=10, c=1):
-    fxy = a/2*np.dot(x, x) + b * np.dot(x, y) - c/2*np.dot(y, y)
-    return fxy
-
-def fbinary(x, y, a=1, b=1, c=1):
-    fxy = np.dot(x, y)
-    return fxy
-
-def f(x, y):
-    return fbinary(x, y, a, b, c)
-
-
 if __name__ == "__main__":
     import numpy as np
     import matplotlib.pyplot as plt
@@ -728,9 +717,9 @@ if __name__ == "__main__":
     ## termination criteria for outer CMA
     Vxmin = 1e-8
     Cxmax = 1e+7
-    Ftolgap = 1e-6
+    Ftolgap = 0
     gapitval = 10
-    maxeval = int(2e+05) 
+    maxeval = int(1e+06) 
     maxitr = int(1e+5)
 
     ## termination criteria for inner CMA
@@ -745,7 +734,7 @@ if __name__ == "__main__":
 
     ## initial parameters for inner CMA-ES
     yc = 3
-    ymember = int(3*lambdax)
+    ymember = int(yc*lambdax)
     init_ymean = np.zeros((ymember, n))
     init_D_y = np.zeros((ymember, n))
     init_y = np.zeros((ymember, n))
@@ -758,7 +747,7 @@ if __name__ == "__main__":
 
 
     ## local search by adversarial CMA-ES
-    local_adv = True
+    local_adv = False
 
     ## parameter for restart
     MAXBI = 1
@@ -767,11 +756,42 @@ if __name__ == "__main__":
     tau_thr = 0.7
     gamma = 1/n
     cmax = int(n*gamma)
-    p = np.ones(ymember) * 1 
+    p = np.ones(ymember) * 1
     pn = 0.05
     pp = 0.4
     p_thr = 0.1
 
+    ## If Tfunc is True, test functions can be used
+    Tfunc=True
+    if Tfunc==True:
+        fn = 3
+        b=1
+        setB = ff.setB(m, n, b)
+        B= setB.setB()
+        fobj =ff.minmaxf(B, yb[:, 0], xb[:, 0])
+        if fn==1:
+            f = fobj.flxly
+        elif fn==2:
+            f = fobj.fcnc
+        elif fn==3:
+            f = fobj.fncc
+        elif fn==4:
+            f = fobj.fmsp
+        elif fn==5:
+            f = fobj.fqcc
+        elif fn==6:
+            f = fobj.fnsscc
+        elif fn==7:
+            f = fobj.fnscc
+        elif fn==8:
+            f = fobj.fnscnsc
+        elif fn==9:
+            f = fobj.fcvncc    
+        elif fn==10:
+            f = fobj.fc4
+        elif fn==11:
+            f = fobj.fellqcc
+        
     print ('Start')
     fxy, xbest, yworst, x_arr, y_arr = optimize(\
     f, Ftolgap, gapitval, Vxmin, Cxmax, boundx, boundy, lambdax, init_x, init_D_x, maxitr, maxeval, MAXBI, xb, yc, ymember, yb, init_y, init_ymean, init_D_y, tau_thr, cmax, Vymin, Cymax, Tmin, p, pp, pn, p_thr, local_adv, acmapath = acmapath, logpath = logpath
@@ -787,12 +807,20 @@ if __name__ == "__main__":
     print("worst y:", y)
     print("f(x,y):", fy)
 
-
     np.savetxt(logpathx, x_arr)
     np.savetxt(logpathy, y_arr)
 
     dat = np.loadtxt(logpath)
     hatF = np.array([np.min(dat[t, 2+3*m:2+3*m+lambdax]) for t in range(len(dat[:,0]))])
+
+    ## If test functions are used, worst y can be obtained.
+    if Tfunc==True:
+        callworst = ff.call_worst(fn, yb[:, 0], n, B)
+        cmean=np.array(dat[:,2:2+m])
+        for i in range(len(dat[:,0])):
+            worstS = np.array(callworst.yworst(cmean[i,:]))
+            hatF[i] = f(cmean[i,:], worstS)
+
 
     plt.rcParams['font.family'] ='sans-serif'
     plt.rcParams['xtick.direction'] = 'in'
