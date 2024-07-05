@@ -588,7 +588,13 @@ def optimize(f, Ftolgap, gapitval, Vxmin, Cxmax, boundx, boundy, lambdax, init_x
             conv = 4
 
         ###       restart 
-        if conv > 1:            
+        if conv > 1:
+            ##  2024/07/05 Added
+            for i in range(cma.lam):
+                nominalx.append(arc[i])
+            for i in range(wrar.ymember):
+                nominaly.append(wrar.yy[i])
+                
             ##  For adversarial part
             if local_adv==True:
                 bid = np.argmin(wrar.Fnew)
